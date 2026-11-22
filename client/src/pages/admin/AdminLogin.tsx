@@ -8,8 +8,8 @@ export const AdminLogin: React.FC = () => {
   const navigate = useNavigate();
   const { loginWithToken } = useAuth();
 
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123456');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,9 +76,7 @@ export const AdminLogin: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl text-[11px] text-purple-300">
-            💡 บัญชีเริ่มต้น: <code className="bg-black/40 px-1 py-0.5 rounded text-white font-mono">admin</code> / <code className="bg-black/40 px-1 py-0.5 rounded text-white font-mono">admin123456</code>
-          </div>
+
 
           <button
             type="submit"

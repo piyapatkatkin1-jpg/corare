@@ -161,6 +161,10 @@ export class TopupController {
         return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำการเติมเงิน' });
       }
 
+      if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ error: 'ปฏิเสธการเข้าถึง: ฟังก์ชันทดสอบเติมเงินสำหรับผู้ดูแลระบบ (Admin) เท่านั้น' });
+      }
+
       const { amount } = req.body;
       const numAmount = parseFloat(amount);
       if (!numAmount || numAmount <= 0) {

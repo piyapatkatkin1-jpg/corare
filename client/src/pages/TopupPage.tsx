@@ -58,6 +58,12 @@ export const TopupPage: React.FC = () => {
   const [activeMainTab, setActiveMainTab] = useState<'TOPUP' | 'HISTORY'>('TOPUP');
 
   useEffect(() => {
+    if (paymentMethod === 'TEST_MODE' && user?.role !== 'ADMIN') {
+      setPaymentMethod('PROMPTPAY');
+    }
+  }, [user, paymentMethod]);
+
+  useEffect(() => {
     api.getTopupPackages()
       .then((res) => {
         if (res && res.packages) {
@@ -230,7 +236,7 @@ export const TopupPage: React.FC = () => {
             เติม Point <span className="text-sky-400">เข้าบัญชีเกม</span>
           </h1>
           <p className="mt-1 text-sm text-gray-400">
-            รองรับทั้ง <b>พร้อมเพย์ (PromptPay QR)</b>, <b>TrueMoney Wallet</b> และ <b>ระบบเติมเงินทดสอบ (Sandbox Mode)</b>
+            รองรับทั้ง <b>พร้อมเพย์ (PromptPay QR Code)</b> และ <b>TrueMoney Wallet ซองของขวัญ</b>
           </p>
         </div>
 
@@ -289,7 +295,7 @@ export const TopupPage: React.FC = () => {
             <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">
               1. เลือกช่องทางการชำระเงิน:
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className={`grid grid-cols-1 ${user?.role === 'ADMIN' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3.5`}>
               {/* Method 1: PromptPay */}
               <button
                 type="button"
@@ -346,33 +352,35 @@ export const TopupPage: React.FC = () => {
                 </div>
               </button>
 
-              {/* Method 3: Test Topup Sandbox */}
-              <button
-                type="button"
-                onClick={() => {
-                  setPaymentMethod('TEST_MODE');
-                  setPromptpayData(null);
-                  setResultMessage(null);
-                }}
-                className={`p-4 rounded-2xl border text-left transition flex items-center gap-3.5 ${
-                  paymentMethod === 'TEST_MODE'
-                    ? 'bg-[#1d162e] border-purple-400 shadow-glow-purple'
-                    : 'bg-[#121927] hover:bg-[#181326] border-gray-800'
-                }`}
-              >
-                <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0">
-                  <FlaskConical className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-white text-sm">เติมเงินทดสอบ (Test Mode)</span>
-                    <span className="px-1.5 py-0.2 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded text-[9px] font-bold">
-                      SANDBOX
-                    </span>
+              {/* Method 3: Test Topup Sandbox - ADMIN ONLY */}
+              {user?.role === 'ADMIN' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('TEST_MODE');
+                    setPromptpayData(null);
+                    setResultMessage(null);
+                  }}
+                  className={`p-4 rounded-2xl border text-left transition flex items-center gap-3.5 ${
+                    paymentMethod === 'TEST_MODE'
+                      ? 'bg-[#1d162e] border-purple-400 shadow-glow-purple'
+                      : 'bg-[#121927] hover:bg-[#181326] border-gray-800'
+                  }`}
+                >
+                  <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0">
+                    <FlaskConical className="w-6 h-6" />
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5">ทดลองเติม Point ฟรีทันที ไม่ต้องใช้เงินจริง</p>
-                </div>
-              </button>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white text-sm">เติมเงินทดสอบ (Test Mode)</span>
+                      <span className="px-1.5 py-0.2 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded text-[9px] font-bold">
+                        ADMIN ONLY
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">ทดลองเติม Point ฟรี (เฉพาะแอดมินทดสอบระบบ)</p>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
 
@@ -588,15 +596,17 @@ export const TopupPage: React.FC = () => {
                           ยกเลิก / เลือกยอดใหม่
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={handleConfirmPromptPay}
-                          className="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-                          title="จำลองว่าสแกนจ่ายสำเร็จ สำหรับการทดสอบโดยไม่ต้องโอนจริง"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>จำลองการโอนสำเร็จ (Test)</span>
-                        </button>
+                        {user?.role === 'ADMIN' && (
+                          <button
+                            type="button"
+                            onClick={handleConfirmPromptPay}
+                            className="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                            title="จำลองว่าสแกนจ่ายสำเร็จ สำหรับการทดสอบโดยไม่ต้องโอนจริง (เฉพาะแอดมิน)"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>จำลองการโอนสำเร็จ (Test - Admin)</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -816,8 +826,8 @@ export const TopupPage: React.FC = () => {
             </div>
           )}
 
-          {/* MODE 3: DEDICATED TEST TOPUP SANDBOX */}
-          {paymentMethod === 'TEST_MODE' && (
+          {/* MODE 3: DEDICATED TEST TOPUP SANDBOX (ADMIN ONLY) */}
+          {paymentMethod === 'TEST_MODE' && user?.role === 'ADMIN' && (
             <div className="max-w-2xl mx-auto space-y-6 animate-fadeIn">
               <div className="p-6 sm:p-8 bg-[#151224] border-2 border-purple-500/40 rounded-3xl shadow-glow-purple space-y-6 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 mx-auto">
