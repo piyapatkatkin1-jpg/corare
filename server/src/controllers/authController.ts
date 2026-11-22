@@ -225,17 +225,17 @@ export class AuthController {
         return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่านของผู้ดูแลระบบ' });
       }
 
-      let user: { id: string; username: string; role: string; password: string | null } | null = null;
-      const fdb = getFirestoreDb();
-      if (fdb) {
-        const snap = await fdb.collection('admins').where('username', '==', username).limit(1).get();
+      let user: { id: string; username: string; role: string; password: string | null } | null =
+        await prisma.user.findUnique({ where: { username } });
+      if (!user || user.role !== 'ADMIN') {
+        // Fallback: dedicated "admins" collection in Firestore
+        const snap = await getFirestoreDb()!.collection('admins').where('username', '==', username).limit(1).get();
+        user = null;
         if (!snap.empty) {
           const d = snap.docs[0];
           const data = d.data();
           user = { id: `admin:${d.id}`, username: data.username, role: 'ADMIN', password: data.password || null };
         }
-      } else {
-        user = await prisma.user.findUnique({ where: { username } });
       }
 
       if (!user || user.role !== 'ADMIN') {
