@@ -3,7 +3,6 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import * as path from 'path';
 import * as fs from 'fs';
 import { config } from '../config';
-import prisma from '../prisma';
 
 let firestoreDb: Firestore | null = null;
 let firebaseInitialized = false;
