@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, MessageSquare, ExternalLink, Heart } from 'lucide-react';
+import { MessageSquare, ExternalLink, Heart } from 'lucide-react';
 import { api } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 
 export const Footer: React.FC = () => {
-  const { user } = useAuth();
   const [storeName, setStoreName] = useState('corarevanilla');
   const [serverIp, setServerIp] = useState('corarevanilla.xyz');
   const [discordUrl, setDiscordUrl] = useState('https://discord.gg/corarevanilla');
@@ -58,15 +56,6 @@ export const Footer: React.FC = () => {
                 Discord Community
                 <ExternalLink className="w-3 h-3 ml-0.5" />
               </a>
-              {user?.role === 'ADMIN' && (
-                <Link
-                  to="/admin/dashboard"
-                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-800 text-gray-400 hover:text-white rounded-xl text-xs transition"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  Admin Panel
-                </Link>
-              )}
             </div>
           </div>
 

@@ -8,7 +8,6 @@ import {
   BookOpen,
   User as UserIcon,
   LogOut,
-  Shield,
   Menu,
   X,
   Copy,
@@ -214,16 +213,6 @@ export const Navbar: React.FC = () => {
                         โปรไฟล์ & ประวัติสั่งซื้อ
                       </Link>
 
-                      {user.role === 'ADMIN' && (
-                        <Link
-                          to="/admin/dashboard"
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-sky-400 hover:bg-sky-950/30 transition"
-                        >
-                          <Shield className="w-4 h-4" />
-                          ระบบจัดการหลังบ้าน
-                        </Link>
-                      )}
-
                       <div className="border-t border-gray-800 my-1"></div>
 
                       <button
@@ -325,16 +314,6 @@ export const Navbar: React.FC = () => {
               className="block px-3 py-2 rounded-lg text-base font-medium text-gray-300 hover:text-white hover:bg-gray-800"
             >
               โปรไฟล์ & ประวัติสั่งซื้อ
-            </Link>
-          )}
-
-          {user?.role === 'ADMIN' && (
-            <Link
-              to="/admin/dashboard"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-lg text-base font-medium text-sky-400 hover:bg-sky-950/30"
-            >
-              ระบบจัดการหลังบ้าน (Admin)
             </Link>
           )}
         </div>
