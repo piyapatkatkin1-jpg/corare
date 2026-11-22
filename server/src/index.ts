@@ -12,8 +12,10 @@ import adminRoutes from './routes/adminRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import { GameLinkController } from './controllers/gameLinkController';
 import { verifyServerSecret } from './middlewares/serverSecret';
+import { bootstrapDefaultSmpData } from './services/bootstrapService';
 
-const app = express();
+// ... หลัง Firebase พร้อม ...
+
 
 // Middlewares
 app.use(cors({
@@ -60,7 +62,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   console.error('Unhandled Server Error:', err);
   res.status(500).json({ error: 'Internal Server Error' });
 });
-
+bootstrapDefaultSmpData().catch(err =>
+  console.error('❌ [Bootstrap] Failed:', err)
+);
+const app = express();
 const PORT = config.port;
 app.listen(PORT, () => {
   console.log(`===============================================`);
