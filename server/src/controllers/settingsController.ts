@@ -25,6 +25,10 @@ export class SettingsController {
                 discordUrl: data?.discordUrl || 'https://discord.gg/corarevanilla',
                 announcement: data?.announcement || '',
                 themeColor: data?.themeColor || 'light-blue',
+                truemoneyPhone: data?.truemoneyPhone || '0812345678',
+                promptpayEnabled: data?.promptpayEnabled !== undefined ? Boolean(data.promptpayEnabled) : true,
+                promptpayNumber: data?.promptpayNumber || '0812345678',
+                promptpayName: data?.promptpayName || 'corarevanilla Store',
               },
             });
           }
@@ -60,6 +64,10 @@ export class SettingsController {
           discordUrl: settings.discordUrl,
           announcement: settings.announcement,
           themeColor: settings.themeColor,
+          truemoneyPhone: settings.truemoneyPhone,
+          promptpayEnabled: settings.promptpayEnabled,
+          promptpayNumber: settings.promptpayNumber,
+          promptpayName: settings.promptpayName,
         },
       });
     } catch (err: any) {
@@ -114,6 +122,9 @@ export class SettingsController {
         serverIp,
         discordUrl,
         truemoneyPhone,
+        promptpayEnabled,
+        promptpayNumber,
+        promptpayName,
         serverSecretKey,
         linkExpiryMinutes,
         maxLinkAttempts,
@@ -137,6 +148,9 @@ export class SettingsController {
         serverIp: serverIp || 'corarevanilla.xyz',
         discordUrl: discordUrl || '',
         truemoneyPhone: truemoneyPhone || '0812345678',
+        promptpayEnabled: promptpayEnabled !== undefined ? Boolean(promptpayEnabled) : true,
+        promptpayNumber: promptpayNumber || '0812345678',
+        promptpayName: promptpayName || 'corarevanilla Store',
         serverSecretKey: serverSecretKey || 'corare_minecraft_secret_token_change_in_production',
         linkExpiryMinutes: linkExpiryMinutes ? parseInt(linkExpiryMinutes, 10) : 5,
         maxLinkAttempts: maxLinkAttempts ? parseInt(maxLinkAttempts, 10) : 5,

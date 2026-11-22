@@ -96,11 +96,35 @@ export const api = {
   getRecentPurchases: () => request<{ recent: any[] }>('/orders/recent'),
 
   // Top-up
-  getTopupPackages: () => request<{ packages: any[] }>('/topup/packages'),
+  getTopupPackages: () => request<{ packages: any[]; settings?: any }>('/topup/packages'),
   redeemVoucher: (voucherUrl: string) =>
     request<{ success: boolean; message: string; amount: number; pointsAdded: number; newBalance: number }>(
       '/topup/voucher',
       { method: 'POST', body: JSON.stringify({ voucherUrl }) }
+    ),
+  createPromptPayQr: (amount: number) =>
+    request<{
+      success: boolean;
+      transactionId: string;
+      amount: number;
+      pointsData: { basePoints: number; bonusPoints: number; totalPoints: number };
+      promptpayPayload: string;
+      qrImageUrl: string;
+      recipient: { number: string; name: string };
+      expiresAt: string;
+    }>('/topup/promptpay/create', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    }),
+  confirmPromptPay: (transactionId: string) =>
+    request<{ success: boolean; message: string; amount: number; pointsAdded: number; newBalance: number }>(
+      '/topup/promptpay/confirm',
+      { method: 'POST', body: JSON.stringify({ transactionId }) }
+    ),
+  testTopup: (amount: number) =>
+    request<{ success: boolean; message: string; amount: number; pointsAdded: number; bonusPoints: number; newBalance: number }>(
+      '/topup/test',
+      { method: 'POST', body: JSON.stringify({ amount }) }
     ),
   getTopupHistory: () => request<{ history: any[] }>('/topup/history'),
 

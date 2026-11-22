@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth';
 import prisma from '../prisma';
 import { TruemoneyService } from '../services/truemoneyService';
+import { generatePromptPayPayload, getPromptPayQrImageUrl } from '../utils/promptpay';
 
 export const TOPUP_PACKAGES = [
   { amount: 50, basePoints: 50, bonusPoints: 3, totalPoints: 53, popular: false, tag: '+5% Bonus' },
@@ -13,10 +14,199 @@ export const TOPUP_PACKAGES = [
 
 export class TopupController {
   /**
-   * Get available top-up packages
+   * Get available top-up packages & payment settings
    */
   public static async getPackages(req: any, res: Response) {
-    return res.json({ packages: TOPUP_PACKAGES });
+    try {
+      const settings = await prisma.systemSetting.findUnique({ where: { id: 'default' } });
+      return res.json({
+        packages: TOPUP_PACKAGES,
+        settings: {
+          promptpayEnabled: settings?.promptpayEnabled !== undefined ? settings.promptpayEnabled : true,
+          promptpayNumber: settings?.promptpayNumber || '0812345678',
+          promptpayName: settings?.promptpayName || 'corarevanilla Store',
+          truemoneyPhone: settings?.truemoneyPhone || '0812345678',
+        },
+      });
+    } catch {
+      return res.json({ packages: TOPUP_PACKAGES });
+    }
+  }
+
+  /**
+   * Create PromptPay QR Code for payment
+   */
+  public static async createPromptPayQr(req: AuthRequest, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำการเติมเงิน' });
+      }
+
+      const { amount } = req.body;
+      const numAmount = parseFloat(amount);
+      if (!numAmount || numAmount <= 0) {
+        return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
+      }
+
+      const settings = await prisma.systemSetting.findUnique({ where: { id: 'default' } });
+      const promptpayNumber = settings?.promptpayNumber || '0812345678';
+      const promptpayName = settings?.promptpayName || 'corarevanilla Store';
+
+      const pointsData = TruemoneyService.calculatePoints(numAmount);
+      const promptpayPayload = generatePromptPayPayload(promptpayNumber, numAmount);
+      const qrImageUrl = getPromptPayQrImageUrl(promptpayPayload, 300);
+      const transactionId = `PP-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+      // Create pending transaction
+      await prisma.topupTransaction.create({
+        data: {
+          transactionId,
+          userId: req.user.id,
+          method: 'PROMPTPAY_QR',
+          amount: numAmount,
+          pointsCredited: pointsData.totalPoints,
+          bonusPoints: pointsData.bonusPoints,
+          status: 'PENDING',
+          reference: `PromptPay QR (${promptpayNumber})`,
+        },
+      });
+
+      return res.json({
+        success: true,
+        transactionId,
+        amount: numAmount,
+        pointsData,
+        promptpayPayload,
+        qrImageUrl,
+        recipient: {
+          number: promptpayNumber,
+          name: promptpayName,
+        },
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      });
+    } catch (err: any) {
+      console.error('Error creating PromptPay QR:', err);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการสร้าง QR Code พร้อมเพย์' });
+    }
+  }
+
+  /**
+   * Confirm PromptPay payment (User or Simulation)
+   */
+  public static async confirmPromptPay(req: AuthRequest, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อน' });
+      }
+
+      const { transactionId } = req.body;
+      if (!transactionId) {
+        return res.status(400).json({ error: 'กรุณาระบุรหัสธุรกรรม' });
+      }
+
+      const tx = await prisma.topupTransaction.findUnique({
+        where: { transactionId },
+      });
+
+      if (!tx || tx.userId !== req.user.id) {
+        return res.status(404).json({ error: 'ไม่พบรายการธุรกรรมนี้' });
+      }
+
+      if (tx.status === 'SUCCESS') {
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        return res.json({
+          success: true,
+          message: 'รายการนี้ได้รับการยืนยันการชำระเงินเรียบร้อยแล้ว',
+          newBalance: user?.balance || 0,
+        });
+      }
+
+      // Mark success & credit balance
+      const result = await prisma.$transaction(async (prismaTx) => {
+        const updatedTx = await prismaTx.topupTransaction.update({
+          where: { transactionId },
+          data: { status: 'SUCCESS' },
+        });
+
+        const updatedUser = await prismaTx.user.update({
+          where: { id: req.user!.id },
+          data: { balance: { increment: tx.pointsCredited } },
+        });
+
+        return { updatedTx, updatedUser };
+      });
+
+      console.log(`💰 [PromptPay] User "${req.user.username}" paid ฿${tx.amount} -> +${tx.pointsCredited} Points`);
+
+      return res.json({
+        success: true,
+        message: `เติมเงินผ่านพร้อมเพย์สำเร็จ ฿${tx.amount.toLocaleString()} ได้รับ ${tx.pointsCredited.toLocaleString()} Points!`,
+        amount: tx.amount,
+        pointsAdded: tx.pointsCredited,
+        bonusPoints: tx.bonusPoints,
+        newBalance: result.updatedUser.balance,
+      });
+    } catch (err: any) {
+      console.error('Error confirming PromptPay:', err);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการยืนยันการชำระเงิน' });
+    }
+  }
+
+  /**
+   * Instant Test Top-up for Sandbox / Dev Testing
+   */
+  public static async testTopup(req: AuthRequest, res: Response) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำการเติมเงิน' });
+      }
+
+      const { amount } = req.body;
+      const numAmount = parseFloat(amount);
+      if (!numAmount || numAmount <= 0) {
+        return res.status(400).json({ error: 'กรุณาระบุจำนวนเงินที่ต้องการทดสอบเติม' });
+      }
+
+      const pointsData = TruemoneyService.calculatePoints(numAmount);
+      const transactionId = `TEST-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+      const result = await prisma.$transaction(async (tx) => {
+        const topup = await tx.topupTransaction.create({
+          data: {
+            transactionId,
+            userId: req.user!.id,
+            method: 'TEST_SANDBOX',
+            amount: numAmount,
+            pointsCredited: pointsData.totalPoints,
+            bonusPoints: pointsData.bonusPoints,
+            status: 'SUCCESS',
+            voucherCode: `TEST_${numAmount}`,
+            reference: 'จำลองการเติมเงินทดสอบ (Sandbox)',
+          },
+        });
+
+        const updatedUser = await tx.user.update({
+          where: { id: req.user!.id },
+          data: { balance: { increment: pointsData.totalPoints } },
+        });
+
+        return { topup, updatedUser };
+      });
+
+      console.log(`🧪 [Test Topup] User "${req.user.username}" credited ฿${numAmount} -> +${pointsData.totalPoints} Points`);
+
+      return res.json({
+        success: true,
+        message: `[ระบบทดสอบ] เติมเงินสำเร็จ ฿${numAmount.toLocaleString()} ได้รับ Point ทั้งสิ้น ${pointsData.totalPoints.toLocaleString()} Points (รวมโบนัส +${pointsData.bonusPoints} P)!`,
+        amount: numAmount,
+        pointsAdded: pointsData.totalPoints,
+        bonusPoints: pointsData.bonusPoints,
+        newBalance: result.updatedUser.balance,
+      });
+    } catch (err: any) {
+      console.error('Error test topup:', err);
+      return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการเติมเงินทดสอบ' });
+    }
   }
 
   /**

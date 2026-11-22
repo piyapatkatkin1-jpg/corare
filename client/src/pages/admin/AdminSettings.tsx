@@ -17,6 +17,7 @@ import {
   Database,
   FileJson,
   Image as ImageIcon,
+  QrCode,
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -41,6 +42,9 @@ export const AdminSettings: React.FC = () => {
     serverIp: 'corarevanilla.xyz',
     discordUrl: 'https://discord.gg/corarevanilla',
     truemoneyPhone: '0812345678',
+    promptpayEnabled: true,
+    promptpayNumber: '0812345678',
+    promptpayName: 'corarevanilla Store',
     serverSecretKey: 'corare_minecraft_secret_token_change_in_production',
     linkExpiryMinutes: 5,
     maxLinkAttempts: 5,
@@ -73,6 +77,9 @@ export const AdminSettings: React.FC = () => {
           serverIp: res.settings.serverIp || 'corarevanilla.xyz',
           discordUrl: res.settings.discordUrl || 'https://discord.gg/corarevanilla',
           truemoneyPhone: res.settings.truemoneyPhone || '0812345678',
+          promptpayEnabled: res.settings.promptpayEnabled !== undefined ? Boolean(res.settings.promptpayEnabled) : true,
+          promptpayNumber: res.settings.promptpayNumber || '0812345678',
+          promptpayName: res.settings.promptpayName || 'corarevanilla Store',
           serverSecretKey: res.settings.serverSecretKey || 'corare_minecraft_secret_token_change_in_production',
           linkExpiryMinutes: res.settings.linkExpiryMinutes || 5,
           maxLinkAttempts: res.settings.maxLinkAttempts || 5,
@@ -512,32 +519,98 @@ export const AdminSettings: React.FC = () => {
           )}
         </div>
 
-        {/* Section 3: Payment & TrueMoney Settings */}
-        <div className="p-6 bg-[#121927] border border-gray-800 rounded-2xl shadow-xl space-y-5">
+        {/* Section 3: Payment (PromptPay & TrueMoney) Settings */}
+        <div className="p-6 bg-[#121927] border border-gray-800 rounded-2xl shadow-xl space-y-6">
           <div className="flex items-center gap-2.5 pb-3 border-b border-gray-800">
             <Coins className="w-5 h-5 text-amber-400" />
             <div>
-              <h2 className="text-base font-bold text-white">ระบบเติมเงิน TrueMoney Wallet</h2>
+              <h2 className="text-base font-bold text-white">ระบบเติมเงิน (Payment Settings: พร้อมเพย์ & TrueMoney)</h2>
               <p className="text-[11px] text-gray-400">
-                เบอร์รับเงินสำหรับซองของขวัญทรูมันนี่ วอลเล็ท (Gift Voucher)
+                ตั้งค่าช่องทางชำระเงิน พร้อมเพย์ QR Code สแกนจ่าย และซองของขวัญ TrueMoney Wallet
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div>
-              <label className="block font-bold text-gray-300 mb-1.5">เบอร์โทรศัพท์ TrueMoney Wallet:</label>
-              <input
-                type="text"
-                value={form.truemoneyPhone}
-                onChange={(e) => setForm({ ...form, truemoneyPhone: e.target.value })}
-                placeholder="เช่น 0812345678"
-                className="w-full px-3.5 py-2.5 bg-[#0b121e] border border-gray-700 rounded-xl text-white font-mono focus:border-amber-400 focus:outline-none transition"
-                required
-              />
-              <p className="mt-1 text-[11px] text-gray-500">
-                เงินจากซองของขวัญที่ผู้เล่นกรอกจะถูกโอนเข้าเบอร์นี้โดยอัตโนมัติ
-              </p>
+          {/* PromptPay Settings Box */}
+          <div className="p-4 bg-[#0b121e] border border-blue-500/30 rounded-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-white text-xs block">ระบบเติมเงิน พร้อมเพย์ (PromptPay QR Code)</span>
+                  <span className="text-[10px] text-gray-400">ผู้เล่นสามารถสแกนจ่ายผ่านทุกแอปธนาคารได้ทันที</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="promptpayEnabled"
+                  checked={form.promptpayEnabled}
+                  onChange={(e) => setForm({ ...form, promptpayEnabled: e.target.checked })}
+                  className="w-4 h-4 text-blue-500 rounded bg-gray-900 border-gray-700 focus:ring-blue-400"
+                />
+                <label htmlFor="promptpayEnabled" className="text-xs font-bold text-gray-300 cursor-pointer">
+                  {form.promptpayEnabled ? <span className="text-blue-400">เปิดใช้งานพร้อมเพย์</span> : <span className="text-gray-500">ปิดใช้งาน</span>}
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-300 mb-1.5">หมายเลขพร้อมเพย์ (เบอร์โทรศัพท์ / เลขบัตร ปชช / Tax ID):</label>
+                <input
+                  type="text"
+                  value={form.promptpayNumber}
+                  onChange={(e) => setForm({ ...form, promptpayNumber: e.target.value })}
+                  placeholder="เช่น 0812345678 หรือ 1234567890123"
+                  className="w-full px-3.5 py-2.5 bg-[#070b13] border border-gray-700 rounded-xl text-blue-300 font-mono font-bold focus:border-blue-400 focus:outline-none transition"
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  ระบบจะใช้หมายเลขนี้ในการคำนวณและสร้าง QR Code ชำระเงินมาตรฐาน EMVCo
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-bold text-gray-300 mb-1.5">ชื่อบัญชีผู้รับเงิน (Account Name):</label>
+                <input
+                  type="text"
+                  value={form.promptpayName}
+                  onChange={(e) => setForm({ ...form, promptpayName: e.target.value })}
+                  placeholder="เช่น นาย สมชาย ใจดี หรือ corarevanilla Store"
+                  className="w-full px-3.5 py-2.5 bg-[#070b13] border border-gray-700 rounded-xl text-white focus:border-blue-400 focus:outline-none transition"
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  ชื่อนี้จะแสดงบนการ์ดใบแจ้งยอด PromptPay เพื่อให้ผู้เล่นตรวจสอบก่อนโอนเงิน
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* TrueMoney Settings Box */}
+          <div className="p-4 bg-[#0b121e] border border-amber-500/30 rounded-2xl space-y-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-800">
+              <Coins className="w-4 h-4 text-amber-400" />
+              <span className="font-bold text-white text-xs">ระบบเติมเงิน TrueMoney Wallet (ซองของขวัญ)</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block font-bold text-gray-300 mb-1.5">เบอร์โทรศัพท์รับเงิน TrueMoney:</label>
+                <input
+                  type="text"
+                  value={form.truemoneyPhone}
+                  onChange={(e) => setForm({ ...form, truemoneyPhone: e.target.value })}
+                  placeholder="เช่น 0812345678"
+                  className="w-full px-3.5 py-2.5 bg-[#070b13] border border-gray-700 rounded-xl text-amber-300 font-mono font-bold focus:border-amber-400 focus:outline-none transition"
+                  required
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  เงินจากซองของขวัญที่ผู้เล่นกรอกจะถูกโอนเข้าเบอร์นี้โดยอัตโนมัติ
+                </p>
+              </div>
             </div>
           </div>
         </div>
