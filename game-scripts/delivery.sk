@@ -1,0 +1,43 @@
+# ==============================================================================
+#  corarevanilla Web Store - In-Game Command Delivery Poller (delivery.sk)
+# ==============================================================================
+#  ใช้สำหรับดึงคำสั่งซื้อสินค้าและของรางวัลจากเว็บร้านค้ามาประมวลผลในเกมอัตโนมัติ
+#  (เหมาะสำหรับเซิร์ฟเวอร์ที่ไม่ได้เปิดพอร์ต RCON ออกสู่อินเทอร์เน็ตสาธารณะ)
+# ==============================================================================
+
+options:
+    backend-url: "http://localhost:5000/api/game"
+    server-secret: "corare_minecraft_secret_token_change_in_production"
+    server-slug: "mmo" # ระบุ slug ของเซิร์ฟเวอร์นี้ (เช่น mmo, smp, skyblock)
+    check-interval: 5 seconds
+
+every {@check-interval}:
+    pollCommandQueue()
+
+function pollCommandQueue():
+    set {_urlStr} to "{@backend-url}/queue?serverSlug={@server-slug}"
+    set {_secret} to "{@server-secret}"
+    
+    run async:
+        try:
+            set {_url} to new java.net.URL({_urlStr})
+            set {_conn} to {_url}.openConnection()
+            {_conn}.setRequestMethod("GET")
+            {_conn}.setRequestProperty("X-Server-Secret", {_secret})
+            {_conn}.setConnectTimeout(3000)
+            {_conn}.setReadTimeout(3000)
+            
+            if {_conn}.getResponseCode() is 200:
+                set {_is} to {_conn}.getInputStream()
+                set {_scanner} to new java.util.Scanner({_is}, "UTF-8").useDelimiter("\\A")
+                set {_res} to ""
+                if {_scanner}.hasNext():
+                    set {_res} to {_scanner}.next()
+                {_scanner}.close()
+                
+                # ถ้ามีคำสั่งในคิว ให้ส่งข้อมูลกลับมาประมวลผลที่เมนเธรด
+                # โค้ดนี้สามารถต่อยอดด้วย JsonObject หรือ regex
+                # ตัวอย่าง: เรียก execute console command ...
+        catch {_e}:
+            # ป้องกัน spam error ในคอนโซลกรณีเว็บปิดปรับปรุง
+            stop

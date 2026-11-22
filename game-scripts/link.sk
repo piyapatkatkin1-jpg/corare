@@ -1,0 +1,120 @@
+# ==============================================================================
+#  corarevanilla Web Store - In-game Account Linking Skript (link.sk)
+# ==============================================================================
+#  เวอร์ชัน: 1.0.0
+#  ความต้องการ: Skript 2.6+ (แนะนำร่วมกับ skript-reflect หรือ skript-http)
+# ==============================================================================
+
+options:
+    # URL ของ Node.js Backend API
+    # หากรันคนละเครื่อง ให้เปลี่ยน localhost เป็น IP หรือโดเมนของเว็บ เช่น "https://store.corarevanilla.xyz/api/link-account"
+    backend-url: "http://localhost:5000/api/link-account"
+    
+    # Secret Key ต้องตรงกับ SERVER_SECRET_KEY ในไฟล์ .env ของ Backend
+    server-secret: "corare_minecraft_secret_token_change_in_production"
+    
+    # ข้อความคำนำหน้า (Prefix) ในแชท
+    prefix: "&8[&bCorare&fVanilla&8]&r"
+
+# ------------------------------------------------------------------------------
+#  Command: /link <รหัส 5 ตัวอักษร>
+# ------------------------------------------------------------------------------
+command /link [<text>]:
+    description: ผูกบัญชี Minecraft เข้ากับเว็บร้านค้า corarevanilla Store
+    usage: &cการใช้งาน: /link <รหัสยืนยัน 5 ตัวอักษรจากหน้าเว็บ>
+    trigger:
+        if arg-1 is not set:
+            send "{@prefix} &cกรุณาระบุรหัสยืนยัน 5 หลักที่ได้จากหน้าเว็บร้านค้า" to player
+            send "{@prefix} &eตัวอย่าง: &f/link AJDE1" to player
+            play sound "entity.villager.no" at volume 1 to player
+            stop
+            
+        set {_code} to uncolored arg-1 in upper case
+        set {_player} to "%player%"
+        set {_uuid} to "%player's uuid%"
+        
+        # ตรวจสอบความยาวรหัส 5 ตัวอักษร
+        if length of {_code} is not 5:
+            send "{@prefix} &cรหัสยืนยันต้องมีความยาว 5 ตัวอักษร (เช่น AJDE1)" to player
+            play sound "entity.villager.no" at volume 1 to player
+            stop
+            
+        send "{@prefix} &eกำลังตรวจสอบรหัส &b%{_code}% &eกับระบบร้านค้า กรุณารอสักครู่..." to player
+        
+        # ----------------------------------------------------------------------
+        # วิธีที่ 1: ใช้ Java HttpURLConnection ผ่าน skript-reflect (แนะนำ)
+        # ไม่ต้องลง addon เพิ่มเติม ทำงานได้บนเซิร์ฟเวอร์ Spigot/Paper ทันที
+        # ----------------------------------------------------------------------
+        linkAccountViaReflect(player, {_player}, {_uuid}, {_code})
+
+# ------------------------------------------------------------------------------
+#  Function: ส่งคำขอ HTTP POST ไปยัง Backend
+# ------------------------------------------------------------------------------
+function linkAccountViaReflect(p: player, username: text, uuid: text, code: text):
+    set {_urlStr} to "{@backend-url}"
+    set {_secret} to "{@server-secret}"
+    
+    # สร้าง JSON Payload
+    set {_json} to "{""username"":""%{_username}%"",""uuid"":""%{_uuid}%"",""code"":""%{_code}%""}"
+    
+    # เรียกใช้ Java Reflection แบบ Asynchronous (ไม่บล็อกเมนเธรดเซิร์ฟเวอร์)
+    run async:
+        try:
+            set {_url} to new java.net.URL({_urlStr})
+            set {_conn} to {_url}.openConnection()
+            {_conn}.setRequestMethod("POST")
+            {_conn}.setRequestProperty("Content-Type", "application/json; utf-8")
+            {_conn}.setRequestProperty("Accept", "application/json")
+            {_conn}.setRequestProperty("X-Server-Secret", {_secret})
+            {_conn}.setDoOutput(true)
+            {_conn}.setConnectTimeout(5000)
+            {_conn}.setReadTimeout(5000)
+            
+            # ส่งข้อมูลออก
+            set {_os} to {_conn}.getOutputStream()
+            set {_input} to {_json}.getBytes("utf-8")
+            {_os}.write({_input}, 0, (size of {_input}))
+            {_os}.flush()
+            {_os}.close()
+            
+            set {_codeHttp} to {_conn}.getResponseCode()
+            
+            # อ่านผลลัพธ์
+            if {_codeHttp} is 200:
+                set {_is} to {_conn}.getInputStream()
+            else:
+                set {_is} to {_conn}.getErrorStream()
+                
+            set {_scanner} to new java.util.Scanner({_is}, "UTF-8").useDelimiter("\\A")
+            set {_response} to ""
+            if {_scanner}.hasNext():
+                set {_response} to {_scanner}.next()
+            {_scanner}.close()
+            
+            # กลับมาแจ้งผลลัพธ์ในเกม
+            run sync:
+                if {_codeHttp} is 200:
+                    send "{@prefix} &a✔ ผูกบัญชีเข้ากับเว็บร้านค้าสำเร็จเรียบร้อยแล้ว!" to {_p}
+                    send "{@prefix} &fคุณสามารถเข้าสู่ระบบบนหน้าเว็บและเริ่มซื้อสินค้าได้ทันที" to {_p}
+                    play sound "entity.player.levelup" with volume 1 and pitch 1 at {_p}
+                    send title "&aผูกบัญชีสำเร็จ!" with subtitle "&fยินดีต้อนรับสู่ corarevanilla Store" to {_p} for 3 seconds
+                else:
+                    send "{@prefix} &c✖ ไม่สามารถผูกบัญชีได้: &e%{_response}%" to {_p}
+                    play sound "entity.villager.no" with volume 1 and pitch 1 at {_p}
+                    
+        catch {_e}:
+            run sync:
+                send "{@prefix} &cเกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์เว็บ: %{_e}%" to {_p}
+                send "{@prefix} &7กรุณาติดต่อผู้ดูแลระบบเซิร์ฟเวอร์" to {_p}
+                play sound "entity.villager.no" with volume 1 and pitch 1 at {_p}
+
+# ==============================================================================
+#  (ทางเลือก) กรณีใช้ addon `skript-http`:
+# ==============================================================================
+# on command /linkhttp [<text>]:
+#     set {_body} to "{""username"":""%player%"",""uuid"":""%player's uuid%"",""code"":""%arg-1%""}"
+#     post "{@backend-url}" with body {_body} with headers "Content-Type: application/json", "X-Server-Secret: {@server-secret}":
+#         if response code is 200:
+#             send "{@prefix} &aผูกบัญชีสำเร็จ!" to player
+#         else:
+#             send "{@prefix} &cผูกบัญชีไม่สำเร็จ: %last response%" to player

@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  uuid        String?
+  role        String   @default("USER") // USER, ADMIN
+  password    String?  // For Admin accounts or direct web login
+  balance     Int      @default(0)
+  totalSpent  Int      @default(0)
+  isLinked    Boolean  @default(false)
+  linkedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders      Order[]
+  topups      TopupTransaction[]
+  redemptions CodeRedemption[]
+}
+
+model LinkSession {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  username    String
+  uuid        String?
+  status      String   @default("PENDING") // PENDING, LINKED, EXPIRED, FAILED
+  attempts    Int      @default(0)
+  ipAddress   String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
+model LinkLog {
+  id               String   @id @default(uuid())
+  username         String
+  uuid             String?
+  code             String
+  status           String   // SUCCESS, FAILED_INVALID_CODE, FAILED_EXPIRED, FAILED_RATE_LIMIT
+  ipAddress        String?
+  serverIdentifier String?
+  createdAt        DateTime @default(now())
+}
+
+model GameServer {
+  id           String        @id @default(uuid())
+  name         String
+  slug         String        @unique
+  description  String?
+  icon         String?
+  banner       String?
+  rconHost     String?
+  rconPort     Int?
+  rconPassword String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+
+  categories   Category[]
+  products     Product[]
+  commandQueue CommandQueue[]
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String
+  icon      String?
+  serverId  String
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+
+  server    GameServer @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  products  Product[]
+}
+
+model Product {
+  id            String      @id @default(uuid())
+  name          String
+  description   String
+  price         Int
+  originalPrice Int?
+  image         String
+  serverId      String
+  categoryId    String
+  commands      String      // JSON string array of commands e.g. ["lp user %player% parent add vip"]
+  isFeatured    Boolean     @default(false)
+  isActive      Boolean     @default(true)
+  stock         Int         @default(-1) // -1 = unlimited
+  createdAt     DateTime    @default(now())
+
+  server        GameServer  @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  orderNumber String      @unique
+  userId      String
+  totalPoints Int
+  status      String      @default("SUCCESS") // PENDING, SUCCESS, FAILED, REFUNDED
+  createdAt   DateTime    @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       OrderItem[]
+}
+
+model OrderItem {
+  id               String   @id @default(uuid())
+  orderId          String
+  productId        String
+  productName      String
+  price            Int
+  commandsExecuted String
+  status           String   @default("SUCCESS") // SUCCESS, FAILED, QUEUED
+
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model CommandQueue {
+  id             String      @id @default(uuid())
+  orderId        String?
+  serverId       String
+  playerUsername String
+  playerUuid     String?
+  command        String
+  status         String      @default("PENDING") // PENDING, EXECUTED, FAILED
+  executedAt     DateTime?
+  retryCount     Int         @default(0)
+  createdAt      DateTime    @default(now())
+
+  server         GameServer  @relation(fields: [serverId], references: [id], onDelete: Cascade)
+}
+
+model TopupTransaction {
+  id             String   @id @default(uuid())
+  transactionId  String   @unique
+  userId         String
+  method         String   // TRUEMONEY_VOUCHER, TRUEMONEY_WEBHOOK, TEST_SANDBOX
+  amount         Float    // THB
+  pointsCredited Int
+  bonusPoints    Int      @default(0)
+  status         String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  voucherCode    String?
+  reference      String?
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RedeemCode {
+  id            String           @id @default(uuid())
+  code          String           @unique
+  type          String           // POINTS, COMMAND
+  pointReward   Int              @default(0)
+  commandReward String?
+  maxUses       Int              @default(1)
+  usedCount     Int              @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+
+  redemptions   CodeRedemption[]
+}
+
+model CodeRedemption {
+  id            String     @id @default(uuid())
+  codeId        String
+  userId        String
+  rewardSummary String
+  createdAt     DateTime   @default(now())
+
+  code          RedeemCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Promotion {
+  id        String   @id @default(uuid())
+  title     String
+  subtitle  String?
+  badge     String?
+  image     String
+  link      String
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model News {
+  id          String   @id @default(uuid())
+  title       String
+  excerpt     String
+  content     String
+  category    String   // อัปเดต, กิจกรรม, ประกาศ
+  coverImage  String?
+  publishedAt DateTime @default(now())
+}
+
+model Rule {
+  id        String   @id @default(uuid())
+  category  String
+  title     String
+  content   String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model RecentPurchase {
+  id          String   @id @default(uuid())
+  username    String
+  uuid        String?
+  productName String
+  serverName  String
+  price       Int
+  createdAt   DateTime @default(now())
+}
+
+model SystemSetting {
+  id              String   @id @default("default")
+  storeName       String   @default("corarevanilla")
+  logoUrl         String   @default("")
+  logoIcon        String   @default("💎")
+  tagline         String   @default("Official Web Store")
+  serverIp        String   @default("corarevanilla.xyz")
+  discordUrl      String   @default("https://discord.gg/corarevanilla")
+  truemoneyPhone  String   @default("0812345678")
+  serverSecretKey String   @default("corare_minecraft_secret_token_change_in_production")
+  linkExpiryMinutes Int    @default(5)
+  maxLinkAttempts Int      @default(5)
+  rconEnabled     Boolean  @default(false)
+  rconHost        String   @default("corarevanilla.xyz")
+  rconPort        Int      @default(25575)
+  rconPassword    String   @default("")
+  announcement    String?  @default("ยินดีต้อนรับสู่ corarevanilla SMP - เซิร์ฟเวอร์มายคราฟเอาชีวิตรอด!")
+  themeColor      String   @default("light-blue")
+  useFirebase     Boolean  @default(false)
+  firebaseProjectId   String @default("")
+  firebaseClientEmail String @default("")
+  firebasePrivateKey  String @default("")
+  updatedAt       DateTime @updatedAt
+}
