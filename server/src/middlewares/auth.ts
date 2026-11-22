@@ -9,69 +9,47 @@ export interface AuthRequest extends Request {
     id: string;
     username: string;
     role: string;
-    uuid?: string | null;
   };
 }
 
+/** ตรวจ JWT — ต้อง login (user หรือ admin) */
 export async function authenticateUser(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนดำเนินการ' });
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'ไม่พบ token กรุณาเข้าสู่ระบบ' });
     }
 
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.jwtSecret) as { id: string; username: string; role: string };
+    const token = header.slice(7);
+    const payload = jwt.verify(token, config.jwtSecret) as {
+      id: string;
+      username: string;
+      role: string;
+    };
 
-    if (decoded.id.startsWith('admin:') && decoded.role === 'ADMIN') {
-      const fdb = getFirestoreDb();
-      const doc = fdb ? await fdb.collection('admins').doc(decoded.id.slice(6)).get() : null;
-      if (!doc || !doc.exists) {
-        return res.status(401).json({ error: 'ไม่พบข้อมูลผู้ใช้งานในระบบ' });
-      }
-      req.user = { id: decoded.id, username: doc.data()!.username, role: 'ADMIN', uuid: null };
+    // ถ้าเป็น admin จาก Firestore (id ขึ้นต้นด้วย "admin:") ไม่ต้อง query Prisma
+    if (payload.id?.startsWith('admin:')) {
+      req.user = payload;
       return next();
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, username: true, role: true, uuid: true, balance: true },
-    });
-
+    // user ปกติ → ตรวจว่ายังมีในระบบ
+    const user = await prisma.user.findUnique({ where: { id: payload.id } });
     if (!user) {
-      return res.status(401).json({ error: 'ไม่พบข้อมูลผู้ใช้งานในระบบ' });
+      return res.status(401).json({ error: 'ไม่พบผู้ใช้ หรือถูกระงับการใช้งาน' });
     }
 
-    req.user = user;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'โทเค็นไม่ถูกต้องหรือหมดอายุแล้ว กรุณาเข้าสู่ระบบใหม่' });
+    req.user = { id: user.id, username: user.username, role: user.role };
+    return next();
+  } catch (err) {
+    return res.status(401).json({ error: 'token ไม่ถูกต้องหรือหมดอายุ' });
   }
 }
 
+/** ต้องเป็น ADMIN เท่านั้น */
 export function authenticateAdmin(req: AuthRequest, res: Response, next: NextFunction) {
   if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'ปฏิเสธการเข้าถึง: สำหรับผู้ดูแลระบบเท่านั้น' });
+    return res.status(403).json({ error: 'เฉพาะผู้ดูแลระบบเท่านั้น' });
   }
-  next();
-}
-
-export async function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      const decoded = jwt.verify(token, config.jwtSecret) as { id: string; username: string; role: string };
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.id },
-        select: { id: true, username: true, role: true, uuid: true, balance: true },
-      });
-      if (user) {
-        req.user = user;
-      }
-    }
-  } catch (err) {
-    // Ignore optional auth error
-  }
-  next();
+  return next();
 }
