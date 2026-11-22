@@ -8,7 +8,7 @@
 options:
     # URL ของ Node.js Backend API
     # หากรันคนละเครื่อง ให้เปลี่ยน localhost เป็น IP หรือโดเมนของเว็บ เช่น "https://store.corarevanilla.xyz/api/link-account"
-    backend-url: "http://localhost:5000/api/link-account"
+    backend-url: "https://corare-production.up.railway.app/api/link-account"
     
     # Secret Key ต้องตรงกับ SERVER_SECRET_KEY ในไฟล์ .env ของ Backend
     server-secret: "corare_minecraft_secret_token_change_in_production"

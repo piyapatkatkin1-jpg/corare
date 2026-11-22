@@ -6,7 +6,7 @@
 # ==============================================================================
 
 options:
-    backend-url: "http://localhost:5000/api/game"
+    backend-url: "https://corare-production.up.railway.app/api/game"
     server-secret: "corare_minecraft_secret_token_change_in_production"
     server-slug: "mmo" # ระบุ slug ของเซิร์ฟเวอร์นี้ (เช่น mmo, smp, skyblock)
     check-interval: 5 seconds

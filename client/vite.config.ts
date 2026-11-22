@@ -5,7 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    host: '0.0.0.0',
+    port: 8080,
+    allowedHosts: ['corare.up.railway.app', process.env.RAILWAY_PUBLIC_DOMAIN].filter(Boolean) as string[],
     proxy: {
       '/api': {
         target: 'https://corare-production.up.railway.app',
