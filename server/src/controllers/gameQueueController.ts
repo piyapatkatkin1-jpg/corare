@@ -31,7 +31,7 @@ export class GameQueueController {
       return res.json({
         success: true,
         count: pending.length,
-        commands: pending.map((item) => ({
+        commands: pending.map((item: any) => ({
           id: item.id,
           player: item.playerUsername,
           uuid: item.playerUuid,

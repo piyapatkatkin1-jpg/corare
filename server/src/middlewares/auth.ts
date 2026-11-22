@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import prisma from '../prisma';
+import { getFirestoreDb } from '../services/firebaseService';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -21,6 +22,16 @@ export async function authenticateUser(req: AuthRequest, res: Response, next: Ne
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, config.jwtSecret) as { id: string; username: string; role: string };
+
+    if (decoded.id.startsWith('admin:') && decoded.role === 'ADMIN') {
+      const fdb = getFirestoreDb();
+      const doc = fdb ? await fdb.collection('admins').doc(decoded.id.slice(6)).get() : null;
+      if (!doc || !doc.exists) {
+        return res.status(401).json({ error: 'ไม่พบข้อมูลผู้ใช้งานในระบบ' });
+      }
+      req.user = { id: decoded.id, username: doc.data()!.username, role: 'ADMIN', uuid: null };
+      return next();
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
