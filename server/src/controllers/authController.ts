@@ -5,6 +5,7 @@ import prisma from '../prisma';
 import { config } from '../config';
 import { generateSecureCode } from '../utils/cryptoUtils';
 import { AuthRequest } from '../middlewares/auth';
+import { getFirestoreDb } from '../services/firebaseService';
 
 export class AuthController {
   /**
@@ -224,9 +225,18 @@ export class AuthController {
         return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่านของผู้ดูแลระบบ' });
       }
 
-      const user = await prisma.user.findUnique({
-        where: { username },
-      });
+      let user: { id: string; username: string; role: string; password: string | null } | null =
+        await prisma.user.findUnique({ where: { username } });
+      if (!user || user.role !== 'ADMIN') {
+        // Fallback: dedicated "admins" collection in Firestore
+        const snap = await getFirestoreDb()!.collection('admins').where('username', '==', username).limit(1).get();
+        user = null;
+        if (!snap.empty) {
+          const d = snap.docs[0];
+          const data = d.data();
+          user = { id: `admin:${d.id}`, username: data.username, role: 'ADMIN', password: data.password || null };
+        }
+      }
 
       if (!user || user.role !== 'ADMIN') {
         return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านผู้ดูแลระบบไม่ถูกต้อง' });
